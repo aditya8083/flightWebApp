@@ -1,84 +1,132 @@
 package com.coviam.service;
 
-import com.coviam.entity.FlightPricingRequest;
-import com.coviam.entity.FlightSearchResponse;
-import com.coviam.util.EscapeCharacter;
-import com.coviam.util.FlightConstants;
-import com.coviam.util.RandomGenerator;
-import com.coviam.util.ResponseEntity;
-import org.apache.catalina.servlet4preview.http.HttpServletRequest;
-import org.hibernate.Criteria;
-import org.hibernate.Session;
-import org.hibernate.SessionFactory;
-import org.hibernate.cfg.Configuration;
-import org.hibernate.criterion.Restrictions;
+import com.coviam.entity.flightEntity.FlightPricingResponse;
+import com.coviam.util.*;
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import com.google.gson.JsonSyntaxException;
 import org.json.JSONArray;
+import org.json.JSONException;
 import org.json.JSONObject;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Component;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.stereotype.Service;
 
-import java.util.List;
-import java.util.Map;
+import javax.servlet.http.HttpServletRequest;
+import java.util.*;
 
-@Component
+@Service
+@ConfigurationProperties(prefix = "endpoint")
 public class FlightPricingManager {
-    @Autowired
-    RandomGenerator randomGenerator;
-    @Autowired
-    FlightConstants flightConstants;
-    @Autowired
-    EscapeCharacter escapeCharacter;
 
+    @Value("${endpoint.flightPrice}")
+    private String flightPrice;
+
+    @Value("${endpoint.flightItinerary}")
+    private String flightItinerary;
+
+
+    @Autowired EscapeCharacter escapeCharacter;
 
     public String getFlightPricing(HttpServletRequest request) {
-        FlightPricingRequest flightPricingRequest = getFlightPricingRequestParams(request);
-        String flightPricingIds[] = flightPricingRequest.getId().split(",");
-        JSONObject flightPricingRespObj = new JSONObject();
-        JSONArray flightResArr = new JSONArray();
-        String response = " ";
+        String flightPricingResponse = "";
+        HashMap<String, String> flightPricingMap = getFlightPricingParams(request);
+
         try {
-            SessionFactory sessionFactory = new Configuration().configure().buildSessionFactory();
-            Session session = sessionFactory.openSession();
-            session.beginTransaction();
-            getFlightPriceResponse(flightPricingIds, session, flightResArr);
-            flightPricingRespObj.put("details_result", flightResArr);
-            if (flightPricingRespObj.getJSONArray("details_result").getJSONArray(0).length() != 0) {
-                System.out.println("Flight Detail response got successfully");
-                response = new JSONObject(new ResponseEntity(flightConstants.SUCCESS_CODE, flightConstants.SUCCESS, randomGenerator.generateRandomString(),
-                           flightConstants.FLIGHT_DETAIL, flightPricingRespObj)).toString();
-            }else {
-                response = new JSONObject(new ResponseEntity(flightConstants.FAILURE_CODE, flightConstants.FAILURE, randomGenerator.generateRandomString(),
-                           flightConstants.FLIGHT_DETAIL, flightPricingRespObj)).toString();
-                System.out.println("Error in Getting Flight Details");
+            flightPricingResponse = HttpUtility.service_URLEncoded(flightPrice, HttpUtility.METHOD_GET, flightPricingMap);
+        } catch (Exception e) {
+            System.out.println("Getting Exception in getting Flight Search Results");
+        }
+        return flightPricingResponse;
+    }
+
+    private HashMap<String, String> getFlightPricingParams(HttpServletRequest request) {
+        HashMap<String, String> flightPricingMap = new HashMap<>();
+        flightPricingMap.put("flightId", request.getParameter("flightId"));
+        flightPricingMap.put("origin", request.getParameter("origin"));
+        flightPricingMap.put("destination", request.getParameter("destination"));
+        flightPricingMap.put("departDate", request.getParameter("departDate"));
+        flightPricingMap.put("returnDate", request.getParameter("returnDate"));
+        flightPricingMap.put("flightType", request.getParameter("flightType"));
+        flightPricingMap.put("adult", request.getParameter("adult"));
+        flightPricingMap.put("infant", request.getParameter("infant"));
+        flightPricingMap.put("child", request.getParameter("child"));
+        return flightPricingMap;
+    }
+
+
+    public String transformedFlightPricingRes(String flightPriceResp) {
+        JSONObject flightResObj = new JSONObject();
+        JSONArray  flightPriceResponseArr = new JSONArray();
+        JSONObject flightPriceResObj = new JSONObject(flightPriceResp);
+        JSONObject responseObj = flightPriceResObj.getJSONObject("response");
+
+        JSONArray priceResultArray = responseObj.getJSONArray("details_result");
+        if (priceResultArray.length() > 0) {
+            JSONArray flightPriceArray = priceResultArray.getJSONArray(0);   // oneWay flights
+            getAllFlights(flightPriceArray, flightPriceResponseArr);
+            if(priceResultArray.length() > 1){    // roundTrip flights
+                JSONArray returnTripFlightArray = priceResultArray.getJSONArray(1);   // ReturnTrip flights
+                getAllFlights(returnTripFlightArray, flightPriceResponseArr);
             }
-        }catch(Exception e){
-            System.out.println("Exception in Getting Flight Details");
-            return escapeCharacter.escapeCharacter(new JSONObject(new ResponseEntity(flightConstants.EXCEPTION_CODE, flightConstants.FAILURE, randomGenerator.generateRandomString(),
-                       flightConstants.FLIGHT_DETAIL,new JSONObject())).toString());
         }
-        return escapeCharacter.escapeCharacter(response);
+        flightResObj.put("flightPriceResponse", flightPriceResponseArr.toString());
+        flightResObj.put("superPnr", flightPriceResObj.getString("superPnr"));
+        flightResObj.put("totalPrice", flightPriceResObj.getString("totalPrice"));
+        return escapeCharacter.escapeCharacter(flightResObj.toString());
     }
 
-    private void getFlightPriceResponse(String[] flightPricingIds, Session session, JSONArray flightResArr) {
-        String onGoingTripFlightId = flightPricingIds[0];
-        Criteria criteria1 = session.createCriteria(FlightSearchResponse.class)
-                .add(Restrictions.eq("id", Integer.parseInt(onGoingTripFlightId)));
-        List<FlightSearchResponse> OnGoingTripResponseList = (List<FlightSearchResponse>)criteria1.list();
-        flightResArr.put( OnGoingTripResponseList);
-        if(flightPricingIds.length > 1){
-            String returnTripFlightId = flightPricingIds[1];
-            Criteria criteria2 = session.createCriteria(FlightSearchResponse.class)
-                    .add(Restrictions.eq("id",  Integer.parseInt(returnTripFlightId)));
-            List<FlightSearchResponse> returnTripResponseList = (List<FlightSearchResponse>)criteria2.list();
-            flightResArr.put(returnTripResponseList);
+    private String getTotalPrice(JSONArray flightPriceResponseArr) {
+    return "";
+    }
+
+    private static void getAllFlights(JSONArray flightJSONArray, JSONArray flightPriceResponseArr) throws JSONException {
+        if (flightJSONArray.length() > 0) {
+            for (int i = 0; i < flightJSONArray.length(); i++) {
+                try {
+                    flightPriceResponseArr.put(flightJSONArray.getJSONObject(i));
+                } catch (Exception e) {
+                    System.out.println("Getting Exception in Adding the response");
+                }
+            }
+        }
+
+    }
+    public static FlightPricingResponse toEntity(String jsonString)
+    {
+        try{
+            Gson gson = new GsonBuilder().create();
+            FlightPricingResponse flightPriceInfo = gson.fromJson(jsonString, FlightPricingResponse.class);
+            return flightPriceInfo;
+        }
+        catch(JsonSyntaxException ex)
+        {
+            ex.printStackTrace();
+            return null;
         }
     }
 
-    private FlightPricingRequest getFlightPricingRequestParams(HttpServletRequest request) {
-        FlightPricingRequest flightPricingRequest = new FlightPricingRequest();
-        flightPricingRequest.setId((request.getParameter("id")));
-        return  flightPricingRequest;
+    public String getFlightItineraryDetails(HttpServletRequest request, String superPnr) {
+        String flightItineraryResponse = "";
+        HashMap<String, String> flightItineraryMap = getFlightItineraryMap(request,superPnr);
+
+        try {
+            flightItineraryResponse = HttpUtility.service_URLEncoded(flightItinerary, HttpUtility.METHOD_GET, flightItineraryMap);
+        } catch (Exception e) {
+            System.out.println("Getting Exception in getting Flight Search Results");
+        }
+        return flightItineraryResponse;
+
 
     }
 
+    private HashMap<String,String> getFlightItineraryMap(HttpServletRequest request, String superPnr) {
+        HashMap<String, String> flightItineraryMap = new HashMap<>();
+        flightItineraryMap.put("superPnr", superPnr);
+        return flightItineraryMap;
+
+    }
 }
+
+

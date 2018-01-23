@@ -1,11 +1,9 @@
 package com.coviam.service;
 
 
-import com.coviam.entity.FlightSearchResponse;
+import com.coviam.entity.flightEntity.FlightSearchResponse;
+import com.coviam.util.CommonUtil;
 import com.coviam.util.HttpUtility;
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
-import com.google.gson.JsonSyntaxException;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -27,7 +25,7 @@ public class FlightSearchManager {
         String flightSearchResponse = "";
         HashMap<String,String> flightRequestMap = getFlightSearchParams(request);
         try {
-            flightSearchResponse = HttpUtility.service(flightSearch, HttpUtility.METHOD_GET, flightRequestMap);
+            flightSearchResponse = HttpUtility.service_URLEncoded(flightSearch, HttpUtility.METHOD_GET, flightRequestMap);
         }catch(Exception e){
             System.out.println("Getting Exception in getting Flight Search Results");
         }
@@ -37,6 +35,8 @@ public class FlightSearchManager {
 
     private static HashMap<String,String> getFlightSearchParams(HttpServletRequest request) {
         HashMap<String,String> flightRequestMap = new HashMap<>();
+       // System.out.println(" ==============" +request.getParameter("origin") + "===========" );
+        //System.out.println(" ==============" +request.getParameter("destination") + "===========" );
         flightRequestMap.put("origin", request.getParameter("origin"));
         flightRequestMap.put("destination", request.getParameter("destination"));
         flightRequestMap.put("originDepartDate", request.getParameter("originDepartDate"));
@@ -49,19 +49,7 @@ public class FlightSearchManager {
     }
 
 
-    private static FlightSearchResponse toEntity(String jsonString)
-    {
-        try{
-            Gson gson = new GsonBuilder().create();
-            FlightSearchResponse flightSearchInfo = gson.fromJson(jsonString, FlightSearchResponse.class);
-            return flightSearchInfo;
-        }
-        catch(JsonSyntaxException ex)
-        {
-            ex.printStackTrace();
-            return null;
-        }
-    }
+
 
 
     public  Map<Integer,List<FlightSearchResponse>> transformedFlightSearchRes(String flightSearchResp) {
@@ -89,7 +77,7 @@ public class FlightSearchManager {
         {
             for(int i=0 ; i < flightJSONArray.length() ; i++){
                 try {
-                    flightList.add(toEntity(flightJSONArray.getJSONObject(i).toString()));
+                    flightList.add(CommonUtil.toEntity(flightJSONArray.getJSONObject(i).toString()));
                 }catch(Exception e){
                     System.out.println("Getting Exception in Adding the response");
                 }

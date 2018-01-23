@@ -1,8 +1,9 @@
 package com.coviam.util;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStreamReader;
+import org.apache.logging.log4j.core.util.IOUtils;
+import org.json.JSONObject;
+
+import java.io.*;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.net.URLEncoder;
@@ -17,7 +18,7 @@ public class HttpUtility {
     public static final int METHOD_POST = 1; // METHOD POST
 
 
-    public static String service(String web_url, int method, HashMap < String, String > params) {
+    public static String service_URLEncoded(String web_url, int method, HashMap < String, String > params) {
                 String requestResponse = "";
                 try {
                     String url = web_url;
@@ -78,7 +79,7 @@ public class HttpUtility {
                     }
 
                     urlConnection.disconnect(); // disconnect connection
-                } catch (IOException e) {
+                } catch (Exception e) {
                     e.printStackTrace();
                     System.out.println(500);
                     System.out.println(e.getLocalizedMessage());
@@ -86,6 +87,54 @@ public class HttpUtility {
                 }
                 System.out.println("Response got from the backend" + requestResponse);
                 return requestResponse;
+    }
+
+
+    public static String service_AppJSON(String web_url, int method, JSONObject jsonParams) {
+        String requestResponse = "";
+        String requestParams = jsonParams.toString();
+        try{
+            HttpURLConnection urlConnection = (HttpURLConnection) new URL(web_url).openConnection();
+            urlConnection.setDoOutput(true); // write POST params
+            urlConnection.setUseCaches(false);
+            urlConnection.setRequestProperty("Content-Type", "application/json"); // handle application JSON form data
+            urlConnection.setRequestProperty("charset", "utf-8");
+            if (method == METHOD_GET) {
+                urlConnection.setRequestMethod("GET");
+            } else if (method == METHOD_POST) {
+                urlConnection.setRequestMethod("POST");
+            }
+            OutputStream outputStream = urlConnection.getOutputStream();
+            outputStream.write(requestParams.getBytes("UTF-8"));
+            outputStream.close();
+
+            // server response code
+            int responseCode = urlConnection.getResponseCode();
+            if (responseCode == HTTP_OK) {
+                BufferedReader reader = new BufferedReader(new InputStreamReader(urlConnection.getInputStream()));
+                StringBuilder response = new StringBuilder();
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    response.append(line);
+                }
+                // callback success
+                requestResponse = response.toString();
+                reader.close(); // close BufferReader
+            } else if (responseCode != HTTP_OK) {
+                System.out.println(responseCode);
+                System.out.println(urlConnection.getResponseMessage());
+                requestResponse = "";
+            }
+
+            urlConnection.disconnect(); // discount connection
+        } catch (Exception e) {
+            e.printStackTrace();
+            System.out.println(500);
+            System.out.println(e.getLocalizedMessage());
+            requestResponse = "";
+        }
+        System.out.println("Response got from the backend" + requestResponse);
+        return  requestResponse;
     }
 
 

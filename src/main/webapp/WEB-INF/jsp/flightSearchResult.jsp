@@ -9,6 +9,9 @@
     <title>Test</title>
     <script src="http://code.jquery.com/jquery-latest.min.js"></script>
     <style>
+    .visible{
+     visibility: hidden;
+    }
     table {
         font-family: arial, sans-serif;
         border-collapse: collapse;
@@ -19,7 +22,7 @@
     td, th {
         border: 1px solid #dddddd;
         text-align: left;
-        padding: 8px;
+        padding: 5px;
     }
 
     tr:nth-child(even) {
@@ -51,10 +54,7 @@
         <tr><td> DepartTime &nbsp;&nbsp;: &nbsp;&nbsp;</td> <td><%=flightList.get(j).getOriginDepartTime()%></td></tr>
         <tr><td> ArrivalDate &nbsp;&nbsp;: &nbsp;&nbsp;</td> <td><%=flightList.get(j).getDestinationArrivalDate()%></td></tr>
         <tr><td> ArrivalTime &nbsp;&nbsp;: &nbsp;&nbsp;</td> <td><%=flightList.get(j).getDestinationArrivalTime()%></td></tr>
-        <tr><td> AdultSeatPrice &nbsp;&nbsp;: &nbsp;&nbsp;</td> <td><%=flightList.get(j).getPricePerAdult()%></td></tr>
-        <tr><td> ChildSeatPrice &nbsp;&nbsp;: &nbsp;&nbsp;</td> <td><%=flightList.get(j).getPricePerChild()%></td></tr>
-        <tr><td> InfantSeatPrice &nbsp;&nbsp;: &nbsp;&nbsp;</td> <td><%=flightList.get(j).getPricePerInfant()%></td></tr>
-        <tr><td> SeatRemain &nbsp;&nbsp;: &nbsp;&nbsp;</td> <td><%=flightList.get(j).getSeatRemain()%></td></tr>
+        <tr><td> Price &nbsp;&nbsp;: &nbsp;&nbsp;</td> <td><%=flightList.get(j).getPricePerAdult()%></td></tr>
       </tr>
       </table>
       <% } %>
